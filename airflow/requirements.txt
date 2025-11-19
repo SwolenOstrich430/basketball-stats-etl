@@ -1,0 +1,2 @@
+pandas==2.3.3
+bball_reference_client @ git+https://github.com/SwolenOstrich430/basketball_reference_client.git@e2a99b00189c005a8bda4c2149db13e3215a362b
