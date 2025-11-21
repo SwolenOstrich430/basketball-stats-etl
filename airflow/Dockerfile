@@ -4,6 +4,7 @@ ARG CHROME_WEB_DRIVER_FILE_NAME="chrome_web_diver.rpm"
 FROM ${AIRFLOW_BASE_IMAGE}
 
 USER root
+RUN apt-get update -y && apt-get install -y wget xvfb unzip jq
 
 RUN apt-get update && apt-get install -y \
     wget \
