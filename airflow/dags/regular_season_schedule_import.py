@@ -1,12 +1,12 @@
 from datetime import datetime
 
 from airflow import DAG
-from airflow.providers.standard.operators.python import PythonVirtualenvOperator
+from airflow.providers.standard.operators.python import PythonOperator
 from bball_reference_client.bball_reference_client import BballReferenceClient
 
 dag = DAG(
     dag_id="regular_season_import",
-    schedule_interval="* * * 10 10 *",
+    schedule="* * * 10 10 *",
     start_date=datetime(2000, 1, 1),
     catchup=True,
 )
@@ -21,7 +21,7 @@ def _download_schedule(**kwargs):
     print(raw_schedule)
 
 
-download_regular_season_schedule = PythonVirtualenvOperator(
+download_regular_season_schedule = PythonOperator(
     task_id="download_regular_season_schedule", 
     python_callable=_download_schedule, 
     dag=dag
