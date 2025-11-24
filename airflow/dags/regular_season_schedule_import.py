@@ -1,30 +1,45 @@
-from datetime import datetime
-
+import pendulum
 from airflow import DAG
-from airflow.providers.standard.operators.python import PythonOperator
-from bball_reference_client.bball_reference_client import BballReferenceClient
+from airflow.decorators import task
+from airflow.providers.google.cloud.transfers.local_to_gcs import LocalFilesystemToGCSOperator
+import importlib
 
-dag = DAG(
-    dag_id="regular_season_import",
-    schedule="* * * 10 10 *",
-    start_date=datetime(2000, 1, 1),
-    catchup=True,
-)
+def get_bball_client():
+    module = importlib.import_module(
+        "bball_reference_client.bball_reference_client"
+    )
+    return module.BballReferenceClient()
 
-
-def _download_schedule(**kwargs):
-    client = BballReferenceClient()
-    logical_date = kwargs['logical_date']
+@task
+def download_schedule(logical_date=None):
+    client = get_bball_client()
     year = logical_date.year + 1
+    raw_schedule = client.get_schedule_raw(year)
 
-    raw_schedule = client.get_season_schedule_raw(year)
-    print(raw_schedule)
+    # Correct filename
+    filename = f"/tmp/{logical_date.year}_{year}_regular_season_schedule.json"
+    raw_schedule.to_json(filename)
+
+    return filename 
 
 
-download_regular_season_schedule = PythonOperator(
-    task_id="download_regular_season_schedule", 
-    python_callable=_download_schedule, 
-    dag=dag
-)
+@task
+def upload_to_gcs(src):
+    LocalFilesystemToGCSOperator(
+        task_id="upload",
+        src=src,
+        dst=f"etl/upload/{src.split('/')[-1]}",
+        bucket="basketball-stats",
+        gzip=True
+    ).execute({})   # must manually execute inside @task
 
-download_regular_season_schedule >> download_regular_season_schedule >> exit
+
+with DAG(
+    dag_id="regular_season_import",
+    schedule="0 0 10 10 *",
+    start_date=pendulum.datetime(2000, 1, 1),
+    catchup=True,
+) as dag:
+
+    file_path = download_schedule()
+    upload_to_gcs(file_path)
